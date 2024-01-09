@@ -8,6 +8,7 @@ package device
 import (
 	"crypto/rand"
 	"encoding/binary"
+	"github.com/sagernet/wireguard-go/common"
 	"sync"
 )
 
@@ -19,7 +20,8 @@ type IndexTableEntry struct {
 
 type IndexTable struct {
 	sync.RWMutex
-	table map[uint32]IndexTableEntry
+	table    map[uint32]IndexTableEntry
+	delCount int32
 }
 
 func randUint32() (uint32, error) {
@@ -39,6 +41,11 @@ func (table *IndexTable) Delete(index uint32) {
 	table.Lock()
 	defer table.Unlock()
 	delete(table.table, index)
+	table.delCount++
+	if table.delCount >= common.DeleteThreshold {
+		table.delCount = 0
+		table.table = common.CleanMap(table.table)
+	}
 }
 
 func (table *IndexTable) SwapIndexForKeypair(index uint32, keypair *Keypair) {

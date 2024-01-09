@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"github.com/sagernet/wireguard-go/common"
 	"net"
 	"os"
 	"sync"
@@ -223,6 +224,7 @@ func (device *Device) RoutineReadFromTUN() {
 		elems       = make([]*QueueOutboundElement, batchSize)
 		bufs        = make([][]byte, batchSize)
 		elemsByPeer = make(map[*Peer]*QueueOutboundElementsContainer, batchSize)
+		delCounter  int32
 		count       = 0
 		sizes       = make([]int, batchSize)
 		offset      = MessageTransportHeaderSize
@@ -299,6 +301,11 @@ func (device *Device) RoutineReadFromTUN() {
 				device.PutOutboundElementsContainer(elemsForPeer)
 			}
 			delete(elemsByPeer, peer)
+			delCounter++
+			if delCounter >= common.DeleteThreshold {
+				delCounter = 0
+				elemsByPeer = common.CleanMap(elemsByPeer)
+			}
 		}
 
 		if readErr != nil {

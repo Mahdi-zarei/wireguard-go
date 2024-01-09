@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"github.com/sagernet/wireguard-go/common"
 	"net"
 	"sync"
 	"time"
@@ -92,6 +93,7 @@ func (device *Device) RoutineReceiveIncoming(maxBatchSize int, recv conn.Receive
 		endpoints   = make([]conn.Endpoint, maxBatchSize)
 		deathSpiral int
 		elemsByPeer = make(map[*Peer]*QueueInboundElementsContainer, maxBatchSize)
+		delCounter  = 0
 	)
 
 	for i := range bufsArrs {
@@ -232,6 +234,11 @@ func (device *Device) RoutineReceiveIncoming(maxBatchSize int, recv conn.Receive
 				device.PutInboundElementsContainer(elemsContainer)
 			}
 			delete(elemsByPeer, peer)
+			delCounter++
+			if delCounter >= common.DeleteThreshold {
+				delCounter = 0
+				elemsByPeer = common.CleanMap(elemsByPeer)
+			}
 		}
 	}
 }

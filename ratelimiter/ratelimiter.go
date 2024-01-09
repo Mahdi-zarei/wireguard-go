@@ -6,6 +6,7 @@
 package ratelimiter
 
 import (
+	"github.com/sagernet/wireguard-go/common"
 	"net/netip"
 	"sync"
 	"time"
@@ -31,6 +32,7 @@ type Ratelimiter struct {
 
 	stopReset chan struct{} // send to reset, close to stop
 	table     map[netip.Addr]*RatelimiterEntry
+	delCount  int32
 }
 
 func (rate *Ratelimiter) Close() {
@@ -89,6 +91,11 @@ func (rate *Ratelimiter) cleanup() (empty bool) {
 		entry.mu.Lock()
 		if rate.timeNow().Sub(entry.lastTime) > garbageCollectTime {
 			delete(rate.table, key)
+			rate.delCount++
+			if rate.delCount >= common.DeleteThreshold {
+				rate.delCount = 0
+				rate.table = common.CleanMap(rate.table)
+			}
 		}
 		entry.mu.Unlock()
 	}
